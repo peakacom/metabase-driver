@@ -1,0 +1,42 @@
+info:
+  name: Metabase Peaka Driver
+  version: 1.0.0
+  description: Allows Metabase to connect to Peaka Studio.
+contact-info:
+  name: Peaka
+  address: https://github.com/starburstdata/metabase-driver
+driver:
+  name: peaka
+  display-name: Peaka
+  lazy-load: true
+  parent: sql-jdbc
+  connection-properties:
+    - merge:
+        - host
+        - default: dbc.peaka.studio
+    - merge:
+        - port
+        - default: 4567
+    - name: apikey
+      display-name: Peaka API Key
+      helper-text: Check Peaka Docs for creating your API Key. https://docs.peaka.com/how-to-guides/how-to-generate-api-keys
+    - merge:
+        - dbname
+        - name: catalog
+          placeholder: stripe
+          display-name: Catalog
+          required: true
+          helper-text: Peaka Catalogs contain schemas and reference data sources via a connector.
+    - name: schema
+      display-name: Schema
+      placeholder: payment
+      required: false
+      helper-text: Only add tables to Metabase that come from a specific schema.
+    - advanced-options-start
+    - default-advanced-options
+
+init:
+  - step: load-namespace
+    namespace: metabase.driver.peaka
+  - step: register-jdbc-driver
+    class: io.trino.jdbc.TrinoDriver

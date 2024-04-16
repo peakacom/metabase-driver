@@ -1,0 +1,61 @@
+; This is the Calva REPL Window.
+; It's just a file, really, with some special treatment from Calva.
+; Use it as a REPL input prompt if you like. (When the REPL is connected.)
+; TIPS: The keyboard shortcut `ctrl+alt+o r` shows and focuses this window
+; Please see https://calva.io/repl-window/ for more info.
+; Happy coding! ♥️
+
+; TIPS: As with any Clojure file when the REPL is connected:
+; - `alt+enter` evaluates the current top level form.
+; - `ctrl+enter` evaluates the current form.
+; Special for this file:
+; - `alt+up` and `alt+down` traverse up and down the REPL command history
+;    when the cursor is after the last contents at the prompt
+
+PLEASE NOTE
+We will update the default location of this file. 
+The new default location will be 
+  "<projectRootPath>/.calva/repl.calva-repl"
+For now the legacy path is used by default.
+To give yourself a smooth transition, you can opt in
+to the change, by configuring this setting as false: 
+  "calva.useLegacyReplWindowPath"
+and then add "**/.calva/repl.calva-repl" to your ".gitignore" file.
+
+
+This file is configured as the output destination for all REPL output.
+You can configure this with the setting:
+  "calva.outputDestinations"
+
+
+; Jacking in...
+; Connecting using "nbb" project type.
+; You can make Calva auto-select this.
+;   - See https://calva.io/connect-sequences/
+; 
+
+; Starting Jack-in Terminal: pushd /Users/ibo/Development/peaka-metabase-driver ; npx nbb nrepl-server :port 59581 ; popd
+; Using host:port 127.0.0.1:59581 ...
+; Hooking up nREPL sessions ...
+; Connected session: clj
+; Evaluating code from settings: 'calva.autoEvaluateCode.onConnect.clj'
+nil
+clj꞉user꞉> 
+; Creating cljs repl session...
+; Connecting cljs repl: nbb...
+; Connected session: cljs
+; TIPS: You can choose which REPL to use (clj or cljs):
+;    *Calva: Toggle REPL connection*
+;    (There is a button in the status bar for this)
+; Evaluating code from settings: 'calva.autoEvaluateCode.onConnect.cljs'
+; Could not find namespace: cljs.repl
+"Please see https://calva.io/output/#about-stdout-in-the-repl-window
+about why stdout printed to this file is prepended with `;` to be line comments."
+cljs꞉user꞉> 
+; Jack-in done.
+cljs꞉user꞉> 
+; Could not resolve symbol: sql-jdbc.conn/connection-details->spec
+clj꞉user꞉> 
+; Could not resolve symbol: sql-jdbc.conn/connection-details->spec
+clj꞉user꞉> 
+; nREPL Connection was closed

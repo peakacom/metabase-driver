@@ -11,8 +11,9 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 ;;
-(ns metabase.driver.implementation.messages "Starburst messages")
+(ns metabase.driver.implementation.messages "Peaka messages")
 
-(def STARBURST_INCOMPATIBLE_WITH_OPTIMIZED_PREPARED "\"Optimized prepared statements\" require Starburst Galaxy, Starburst Enterprise (version 420-e or higher), or Trino (version 418 or higher)")
-(def STARBURST_MAYBE_INCOMPATIBLE ". If the database has the \"Optimized prepared statements\" option on, it require Starburst Galaxy, Starburst Enterprise (version 420-e or higher), or Trino (version 418 or higher)")
+(def PEAKA_INCOMPATIBLE_WITH_OPTIMIZED_PREPARED "\"Optimized prepared statements\" require Trino (version 418 or higher)")
+(def PEAKA_MAYBE_INCOMPATIBLE ". If the database has the \"Optimized prepared statements\" option on, it require Trino (version 418 or higher)")
 (def TOO_MANY_PARAMETERS "It looks like we got more parameters than we can handle, remember that parameters cannot be used in comments or as identifiers.")
+(def PEAKA_API_KEY_PARAMS_PREFIX "extraCredentials=peakaKey:")

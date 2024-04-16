@@ -11,7 +11,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 ;;
-(ns metabase.driver.implementation.query-processor  "Query processor implementations for Starburst driver."
+(ns metabase.driver.implementation.query-processor  "Query processor implementations for Peaka driver."
   (:require [honey.sql :as sql]
             [honey.sql.helpers :as sql.helpers]
             [java-time :as t]
@@ -26,7 +26,7 @@
 
 (def ^:private ^:const timestamp-with-time-zone-db-type "timestamp with time zone")
 
-(defmethod sql.qp/honey-sql-version :starburst
+(defmethod sql.qp/honey-sql-version :peaka
   [_driver]
   2)
 
@@ -34,7 +34,7 @@
 ;;; |                                          Misc Implementations                                                       |
 ;;; +----------------------------------------------------------------------------------------------------------------+
 
-(defmethod sql.qp/->float :starburst
+(defmethod sql.qp/->float :peaka
   [_ value]
   (h2x/cast :double value))
 
@@ -50,7 +50,7 @@
 (sql/register-fn! ::mod #'format-mod)
 
 
-(defmethod sql.qp/add-interval-honeysql-form :starburst
+(defmethod sql.qp/add-interval-honeysql-form :peaka
   [_ hsql-form amount unit]
   (let [type-info   (h2x/type-info hsql-form)
         out-form [:date_add (h2x/literal unit) [:inline amount] hsql-form]]
@@ -58,7 +58,7 @@
     (h2x/with-type-info out-form type-info)
     out-form)))
 
-(defmethod sql.qp/apply-top-level-clause [:starburst :page]
+(defmethod sql.qp/apply-top-level-clause [:peaka :page]
   [_ _ honeysql-query {{:keys [items page]} :page}]
   (let [offset (* (dec page) items)]
     (if (zero? offset)
@@ -78,11 +78,11 @@
 ;;; |                                          Temporal Casting                                                       |
 ;;; +----------------------------------------------------------------------------------------------------------------+
 
-(defmethod sql.qp/cast-temporal-string [:starburst :Coercion/YYYYMMDDHHMMSSString->Temporal]
+(defmethod sql.qp/cast-temporal-string [:peaka :Coercion/YYYYMMDDHHMMSSString->Temporal]
   [_ _coercion-strategy expr]
   [:date_parse expr (h2x/literal "%Y%m%d%H%i%s")])
 
-(defmethod sql.qp/cast-temporal-byte [:starburst :Coercion/YYYYMMDDHHMMSSBytes->Temporal]
+(defmethod sql.qp/cast-temporal-byte [:peaka :Coercion/YYYYMMDDHHMMSSBytes->Temporal]
   [driver _coercion-strategy expr]
   (sql.qp/cast-temporal-string driver :Coercion/YYYYMMDDHHMMSSString->Temporal
                                [:from_utf8 expr]))
@@ -95,7 +95,7 @@
   "Returns a HoneySQL form to interpret the `expr` (a temporal value) in the current report time zone, via Trino's
   `AT TIME ZONE` operator. See https://trino.io/docs/current/functions/datetime.html#time-zone-conversion"
   [expr]
-  (let [report-zone (qp.timezone/report-timezone-id-if-supported :starburst (lib.metadata/database (qp.store/metadata-provider)))
+  (let [report-zone (qp.timezone/report-timezone-id-if-supported :peaka (lib.metadata/database (qp.store/metadata-provider)))
         ;; if the expression itself has type info, use that, or else use a parent expression's type info if defined
         type-info   (h2x/type-info expr)
         db-type     (h2x/type-info->db-type type-info)]
@@ -111,134 +111,134 @@
 
 ;; most date extraction and bucketing functions need to account for report timezone
 
-(defmethod sql.qp/date [:starburst :default]
+(defmethod sql.qp/date [:peaka :default]
   [_ _ expr]
   expr)
 
-(defmethod sql.qp/date [:starburst :second-of-minute]
+(defmethod sql.qp/date [:peaka :second-of-minute]
   [_ _ expr]
   [:second (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :minute]
+(defmethod sql.qp/date [:peaka :minute]
   [_ _ expr]
   [:date_trunc (h2x/literal :minute) (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :minute-of-hour]
+(defmethod sql.qp/date [:peaka :minute-of-hour]
   [_ _ expr]
   [:minute (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :hour]
+(defmethod sql.qp/date [:peaka :hour]
   [_ _ expr]
   [:date_trunc (h2x/literal :hour) (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :hour-of-day]
+(defmethod sql.qp/date [:peaka :hour-of-day]
   [_ _ expr]
   [:hour (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :day]
+(defmethod sql.qp/date [:peaka :day]
   [_ _ expr]
   [:date (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :day-of-week]
+(defmethod sql.qp/date [:peaka :day-of-week]
   [_ _ expr]
-  (sql.qp/adjust-day-of-week :starburst [:day_of_week (in-report-zone expr)]))
+  (sql.qp/adjust-day-of-week :peaka [:day_of_week (in-report-zone expr)]))
 
-(defmethod sql.qp/date [:starburst :day-of-month]
+(defmethod sql.qp/date [:peaka :day-of-month]
   [_ _ expr]
   [:day (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :day-of-year]
+(defmethod sql.qp/date [:peaka :day-of-year]
   [_ _ expr]
   [:day_of_year (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :week]
+(defmethod sql.qp/date [:peaka :week]
   [_ _ expr]
-  (sql.qp/adjust-start-of-week :starburst (fn [expr] [:date_trunc (h2x/literal :week) (in-report-zone expr)]) expr))
+  (sql.qp/adjust-start-of-week :peaka (fn [expr] [:date_trunc (h2x/literal :week) (in-report-zone expr)]) expr))
 
-(defmethod sql.qp/date [:starburst :week-of-year-iso]
+(defmethod sql.qp/date [:peaka :week-of-year-iso]
   [_ _ expr]
   [:week (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :month]
+(defmethod sql.qp/date [:peaka :month]
   [_ _ expr]
   [:date_trunc (h2x/literal :month) (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :month-of-year]
+(defmethod sql.qp/date [:peaka :month-of-year]
   [_ _ expr]
   [:month (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :quarter]
+(defmethod sql.qp/date [:peaka :quarter]
   [_ _ expr]
   [:date_trunc (h2x/literal :quarter) (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :quarter-of-year]
+(defmethod sql.qp/date [:peaka :quarter-of-year]
   [_ _ expr]
   [:quarter (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :year]
+(defmethod sql.qp/date [:peaka :year]
   [_ _ expr]
   [:date_trunc (h2x/literal :year) (in-report-zone expr)])
 
-(defmethod sql.qp/date [:starburst :year-of-era]
+(defmethod sql.qp/date [:peaka :year-of-era]
   [_ _ expr]
   [:year (in-report-zone expr)])
 
-(defmethod sql.qp/current-datetime-honeysql-form :starburst
+(defmethod sql.qp/current-datetime-honeysql-form :peaka
   [_]
-  ;; the current_timestamp in Starburst returns a `timestamp with time zone`, so this needs to be overridden
+  ;; the current_timestamp in Peaka returns a `timestamp with time zone`, so this needs to be overridden
   (h2x/with-type-info :%now {::h2x/database-type timestamp-with-time-zone-db-type}))
 
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                          Custom HoneySQL Clause Impls                                          |
 ;;; +----------------------------------------------------------------------------------------------------------------+
 
-(defmethod sql.qp/->honeysql [:starburst Boolean]
+(defmethod sql.qp/->honeysql [:peaka Boolean]
   [_ bool]
   [:raw (if bool "TRUE" "FALSE")])
 
-(defmethod sql.qp/->honeysql [:starburst :regex-match-first]
+(defmethod sql.qp/->honeysql [:peaka :regex-match-first]
   [driver [_ arg pattern]]
   [:regexp_extract (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver pattern)])
 
-(defmethod sql.qp/->honeysql [:starburst :median]
+(defmethod sql.qp/->honeysql [:peaka :median]
   [driver [_ arg]]
   [:approx_percentile (sql.qp/->honeysql driver arg) 0.5])
 
-(defmethod sql.qp/->honeysql [:starburst :percentile]
+(defmethod sql.qp/->honeysql [:peaka :percentile]
   [driver [_ arg p]]
   [:approx_percentile (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver p)])
 
-(defmethod sql.qp/->honeysql [:starburst :log]
+(defmethod sql.qp/->honeysql [:peaka :log]
   [driver [_ field]]
   ;; recent Trino versions have a `log10` function (not `log`)
   [:log10 (sql.qp/->honeysql driver field)])
 
-(defmethod sql.qp/->honeysql [:starburst :count-where]
+(defmethod sql.qp/->honeysql [:peaka :count-where]
   [driver [_ pred]]
-  ;; Starburst will use the precision given here in the final expression, which chops off digits
+  ;; Peaka will use the precision given here in the final expression, which chops off digits
   ;; need to explicitly provide two digits after the decimal
   (sql.qp/->honeysql driver [:sum-where 1.00M pred]))
 
-(defmethod sql.qp/->honeysql [:starburst :time]
+(defmethod sql.qp/->honeysql [:peaka :time]
   [_ [_ t]]
   ;; Convert t to locale time, then format as sql. Then add cast.
   (h2x/cast :time (u.date/format-sql (t/local-time t))))
 
-(defmethod sql.qp/->honeysql [:starburst ZonedDateTime]
+(defmethod sql.qp/->honeysql [:peaka ZonedDateTime]
   [_ ^ZonedDateTime t]
   ;; use the Trino cast to `timestamp with time zone` operation to interpret in the correct TZ, regardless of
   ;; connection zone
   (h2x/cast timestamp-with-time-zone-db-type (u.date/format-sql t)))
 
-(defmethod sql.qp/->honeysql [:starburst OffsetDateTime]
+(defmethod sql.qp/->honeysql [:peaka OffsetDateTime]
   [_ ^OffsetDateTime t]
   ;; use the Trino cast to `timestamp with time zone` operation to interpret in the correct TZ, regardless of
   ;; connection zone
   (h2x/cast timestamp-with-time-zone-db-type (u.date/format-sql t)))
 
-(defmethod sql.qp/unix-timestamp->honeysql [:starburst :seconds]
+(defmethod sql.qp/unix-timestamp->honeysql [:peaka :seconds]
   [_ _ expr]
-  (let [report-zone (qp.timezone/report-timezone-id-if-supported :starburst (lib.metadata/database (qp.store/metadata-provider)))]
+  (let [report-zone (qp.timezone/report-timezone-id-if-supported :peaka (lib.metadata/database (qp.store/metadata-provider)))]
     [:from_unixtime expr (h2x/literal (or report-zone "UTC"))]))
 
 (defn- timestamp-with-time-zone? [expr]
@@ -254,18 +254,18 @@
   (h2x/at-time-zone (->timestamp-with-time-zone expr) (qp.timezone/results-timezone-id)))
 
 (doseq [unit [:year :quarter :month :week :day]]
-  (defmethod sql.qp/datetime-diff [:starburst unit] [_driver unit x y]
+  (defmethod sql.qp/datetime-diff [:peaka unit] [_driver unit x y]
     [:date_diff (h2x/literal unit)
      (h2x/->date (->at-time-zone x))
      (h2x/->date (->at-time-zone y))]))
 
 (doseq [unit [:hour :minute :second]]
-  (defmethod sql.qp/datetime-diff [:starburst unit] [_driver unit x y]
+  (defmethod sql.qp/datetime-diff [:peaka unit] [_driver unit x y]
     [:date_diff (h2x/literal unit)
      (->at-time-zone x)
      (->at-time-zone y)]))
 
-(defmethod sql.qp/->honeysql [:starburst :convert-timezone]
+(defmethod sql.qp/->honeysql [:peaka :convert-timezone]
   [driver [_ arg target-timezone source-timezone]]
   (let [expr         (sql.qp/->honeysql driver (cond-> arg
                                                  (string? arg) u.date/parse))

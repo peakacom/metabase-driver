@@ -23,6 +23,6 @@
   {:extra-deps {metabase/metabase-core {:local/root "../metabase"}
                 metabase/build-drivers {:local/root "../metabase/bin/build-drivers"}}
    :exec-fn    build-drivers.build-driver/build-driver!
-   :exec-args  {:driver      :starburst
+   :exec-args  {:driver      :peaka
                 :project-dir "."
                 :target-dir  "./target"}}}}

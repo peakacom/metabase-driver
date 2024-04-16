@@ -11,8 +11,8 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 ;;
-(ns metabase.driver.starburst
-  "Starburst driver."
+(ns metabase.driver.peaka
+  "Peaka driver."
   (:require [metabase.driver :as driver]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
@@ -22,9 +22,9 @@
             [metabase.public-settings :as public-settings]
             [metabase.driver.implementation.messages :as msg]
             [metabase.driver.sql-jdbc.execute.legacy-impl :as sql-jdbc.legacy]))
-(driver/register! :starburst, :parent #{::sql-jdbc.legacy/use-legacy-classes-for-read-and-set})
+(driver/register! :peaka, :parent #{::sql-jdbc.legacy/use-legacy-classes-for-read-and-set})
  
-(prefer-method driver/database-supports? [:starburst :set-timezone] [:sql-jdbc :set-timezone])
+(prefer-method driver/database-supports? [:peaka :set-timezone] [:sql-jdbc :set-timezone])
 
 (defn format-field
   [name value]
@@ -32,7 +32,7 @@
     ""
     (str " " name ": " value)))
 
-(defmethod qp.util/query->remark :starburst
+(defmethod qp.util/query->remark :peaka
   [_ {{:keys [card-id dashboard-id]} :info, :as query}]
   (str
     (qp.util/default-query->remark query)
@@ -46,19 +46,19 @@
         execute-immediate (get details :prepared-optimized false)]
     (cond
       (and (clojure.string/includes? message "Expecting: 'USING'") execute-immediate)
-      (throw (Exception. msg/STARBURST_INCOMPATIBLE_WITH_OPTIMIZED_PREPARED))
+      (throw (Exception. msg/PEAKA_INCOMPATIBLE_WITH_OPTIMIZED_PREPARED))
       :else (throw e))))
 
-(defmethod driver/can-connect? :starburst
+(defmethod driver/can-connect? :peaka
   [driver details]
   (try
     (connection/with-connection-spec-for-testing-connection [jdbc-spec [driver details]]
       (connection/can-connect-with-spec? jdbc-spec))
     (catch Throwable e (handle-execution-error e details))))
 
-;;; The Starburst JDBC driver DOES NOT support the `.getImportedKeys` method so just return `nil` here so the
+;;; The Peaka JDBC driver DOES NOT support the `.getImportedKeys` method so just return `nil` here so the
 ;;; implementation doesn't try to use it.
-(defmethod driver/describe-table-fks :starburst
+(defmethod driver/describe-table-fks :peaka
   [_driver _database _table]
   nil)
 

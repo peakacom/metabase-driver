@@ -12,17 +12,17 @@
 ;; limitations under the License.
 ;;
 (ns metabase.driver.implementation.driver-helpers
-  "Driver api implementation for Starburst driver."
+  "Driver api implementation for Peaka driver."
   (:require [metabase.driver :as driver]
             [metabase.config :as config]))
 
-;;; Starburst API helpers
+;;; Peaka API helpers
 
-(defmethod driver/db-start-of-week :starburst
+(defmethod driver/db-start-of-week :peaka
   [_]
   :monday)
 
-(defmethod driver/describe-table-fks :starburst [_ _ _]
+(defmethod driver/describe-table-fks :peaka [_ _ _]
   ;; Trino does not support finding foreign key metadata tables, but some connectors support foreign keys.
   ;; We have this return nil to avoid running unnecessary queries during fks sync.
   nil)
@@ -38,6 +38,6 @@
                               :datetime-diff                   true
                               :convert-timezone                true
                               :now                             true}]
-  (defmethod driver/database-supports? [:starburst feature] [_ _ _] supported?))
+  (defmethod driver/database-supports? [:peaka feature] [_ _ _] supported?))
 
-(defmethod driver/database-supports? [:starburst :foreign-keys] [_driver _feature _db] (not config/is-test?))
+(defmethod driver/database-supports? [:peaka :foreign-keys] [_driver _feature _db] (not config/is-test?))

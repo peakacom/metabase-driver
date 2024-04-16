@@ -11,7 +11,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 ;;
-(ns metabase.driver.starburst-test
+(ns metabase.driver.peaka-test
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.string :as str]
             [clojure.test :refer :all]
@@ -19,7 +19,7 @@
             [metabase.api.database :as api.database]
             [metabase.db.metadata-queries :as metadata-queries]
             [metabase.driver :as driver]
-            [metabase.driver.implementation.connectivity :as starburst-connectivity]
+            [metabase.driver.implementation.connectivity :as peaka-connectivity]
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
             [metabase.driver.sql.query-processor :as sql.qp]
             [metabase.models.database :refer [Database]]
@@ -36,12 +36,12 @@
 (use-fixtures :once (fixtures/initialize :db))
 
 (deftest describe-database-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                   (is (= {:tables #{{:name "test_data_categories" :schema "default"}
                                     {:name "test_data_venues" :schema "default"}
                                     {:name "test_data_checkins" :schema "default"}
                                     {:name "test_data_users" :schema "default"}}}
-                         (-> (driver/describe-database :starburst (mt/db))
+                         (-> (driver/describe-database :peaka (mt/db))
                              (update :tables (comp set (partial filter (comp #{"test_data_categories"
                                                                                "test_data_venues"
                                                                                "test_data_checkins"
@@ -49,7 +49,7 @@
                                                                              :name)))))))))
 
 (deftest describe-table-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                   (is (= {:name   "test_data_venues"
                           :schema "default"
                           :fields #{{:name          "name",
@@ -78,10 +78,10 @@
                                      :database-type "integer"
                                      :base-type     :type/Integer
                                      :database-position 0}}}
-                         (driver/describe-table :starburst (mt/db) (t2/select-one 'Table :id (mt/id :venues)))))))
+                         (driver/describe-table :peaka (mt/db) (t2/select-one 'Table :id (mt/id :venues)))))))
 
 (deftest table-rows-sample-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                   (is (= [[1 "Red Medicine"]
                           [2 "Stout Burgers & Beers"]
                           [3 "The Apple Pan"]
@@ -105,7 +105,7 @@
                       :order-by [[:default.categories.id :asc]]}]
             :where  [:> :__rownum__ 5]
             :limit  5}
-           (sql.qp/apply-top-level-clause :starburst :page
+           (sql.qp/apply-top-level-clause :peaka :page
                                           {:select   [[:default.categories.name "name"] [:default.categories.id "id"]]
                                            :from     [:default.categories]
                                            :order-by [[:default.categories.id :asc]]}
@@ -113,13 +113,13 @@
                                                   :items 5}})))))
 
 (deftest db-timezone-id-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                     (testing "If global timezone is 'SYSTEM', should use system timezone"
                       (is (= "UTC"
                              (driver/db-default-timezone driver/*driver* (mt/db)))))))
 
 (deftest template-tag-timezone-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                   (testing "Make sure date params work correctly when report timezones are set (#10487)"
                     (mt/with-temporary-setting-values [report-timezone "Asia/Hong_Kong"]
         ;; the `read-column-thunk` for `Types/TIMESTAMP` always returns an `OffsetDateTime`, not a `LocalDateTime`, as
@@ -141,7 +141,7 @@
                                                 :value  "2014-08-02"}]}))))))))
 
 (deftest splice-strings-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                   (let [query (mt/mbql-query venues
                                              {:aggregation [[:count]]
                                               :filter      [:= $name "wow"]})]
@@ -159,27 +159,27 @@
                             ["my_catalog" nil "my_catalog"]
                             ["my_catalog" "" "my_catalog"]
                             ["my_catalog" "my_schema" "my_catalog/my_schema"]]]
-      (is (= expected (#'starburst-connectivity/db-name c s)))))
+      (is (= expected (#'peaka-connectivity/db-name c s)))))
   (testing "jdbc-spec is correct"
     (is (= {:classname   "io.trino.jdbc.TrinoDriver"
             :subname     "//my-starburst-server:1234/my_catalog?Option1=Value1&Option2=Value2"
             :subprotocol "trino"}
-           (#'starburst-connectivity/jdbc-spec {:host "my-starburst-server"
+           (#'peaka-connectivity/jdbc-spec {:host "my-starburst-server"
                                :port 1234
                                :catalog "my_catalog"
                                :schema nil
                                :additional-options "Option1=Value1&Option2=Value2"})))))
 
 (defn- execute-ddl! [ddl-statements]
-  (mt/with-driver :starburst
-    (let [jdbc-spec (sql-jdbc.conn/connection-details->spec :starburst (:details (mt/db)))]
+  (mt/with-driver :peaka
+    (let [jdbc-spec (sql-jdbc.conn/connection-details->spec :peaka (:details (mt/db)))]
       (with-open [conn (jdbc/get-connection jdbc-spec)]
         (doseq [ddl-stmt ddl-statements]
           (with-open [stmt (.prepareStatement conn ddl-stmt)]
             (.executeUpdate stmt)))))))
 
 (deftest specific-schema-sync-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                   (testing "When a specific schema is designated, only that one is synced"
                     (let [s           "specific_schema"
                           t           "specific_table"
@@ -189,7 +189,7 @@
                                      (format "DROP SCHEMA IF EXISTS %s" s)
                                      (format "CREATE SCHEMA %s" s)
                                      (format "CREATE TABLE %s.%s (pk INTEGER, val1 VARCHAR(512))" s t)])
-                      (t2.with-temp/with-temp [Database db {:engine :starburst, :name "Temp Trino JDBC Schema DB", :details with-schema}]
+                      (t2.with-temp/with-temp [Database db {:engine :peaka, :name "Temp Trino JDBC Schema DB", :details with-schema}]
                         (mt/with-db db
             ;; same as test_data, but with schema, so should NOT pick up venues, users, etc.
                           (sync/sync-database! db)
@@ -199,13 +199,13 @@
                                      (format "DROP SCHEMA %s" s)])))))
 
 (deftest test-database-connection-test
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
                   (testing "can-test-database-connection works properly"
       ;; for whatever reason, :let-user-control-scheduling is the only "always available" option that goes into details
       ;; the others (ex: :auto_run_queries and :refingerprint) are one level up (fields in the model, not in the details
       ;; JSON blob)
                     (let [db-details (assoc (:details (mt/db)) :let-user-control-scheduling false)]
-                      (is (nil? (api.database/test-database-connection :starburst db-details)))))))
+                      (is (nil? (api.database/test-database-connection :peaka db-details)))))))
 
 (deftest kerberos-properties-test
   (testing "Kerberos related properties are set correctly"
@@ -219,7 +219,7 @@
                    :kerberos-remote-service-name "HTTP"
                    :kerberos-keytab-path         "/path/to/client.keytab"
                    :kerberos-delegation          true}
-          jdbc-spec (sql-jdbc.conn/connection-details->spec :starburst details)]
+          jdbc-spec (sql-jdbc.conn/connection-details->spec :peaka details)]
       (is (= (str "//starburst-server:7778/my-catalog?KerberosPrincipal=alice@DOMAIN.COM"
                   "&KerberosRemoteServiceName=HTTP&KerberosKeytabPath=/path/to/client.keytab"
                   "&KerberosConfigPath=/path/to/krb5.conf&KerberosDelegation=true")
@@ -231,8 +231,8 @@
                    :port                         7778
                    :catalog                      "my-catalog"
                    :ssl                          true}
-          jdbc-spec (sql-jdbc.conn/connection-details->spec :starburst details)]
-      (is (true? (str/starts-with? (:source jdbc-spec) "Starburst Metabase"))))))
+          jdbc-spec (sql-jdbc.conn/connection-details->spec :peaka details)]
+      (is (true? (str/starts-with? (:source jdbc-spec) "Peaka Metabase"))))))
 
 (deftest role-property-test
   (testing "Role is set correctly"
@@ -240,7 +240,7 @@
                   :port                          7778
                   :roles                         "my_role"
                   :catalog                       "my-catalog"}
-          jdbc-spec (sql-jdbc.conn/connection-details->spec :starburst details)]
+          jdbc-spec (sql-jdbc.conn/connection-details->spec :peaka details)]
           (is (true? (= (:roles jdbc-spec) "system:my_role"))))))
 
 (deftest datetime-diff-base-test
@@ -280,7 +280,7 @@
                    :catalog                      "my-catalog"
                    :ssl                          true
                    :impersonation                true}
-          jdbc-spec (sql-jdbc.conn/connection-details->spec :starburst details)]
+          jdbc-spec (sql-jdbc.conn/connection-details->spec :peaka details)]
       (is (= (str "impersonate:true")
              (:clientInfo jdbc-spec))))))
 
@@ -295,7 +295,7 @@
             :user                         "admin"
             :ssl                          false
             :prepared-optimized           prepared-optimized}]
-              (t2.with-temp/with-temp [Database db {:engine :starburst, :name "Temp Trino JDBC Schema DB", :details details}]
+              (t2.with-temp/with-temp [Database db {:engine :peaka, :name "Temp Trino JDBC Schema DB", :details details}]
               (mt/with-db db
               (qp/process-query
                 {:database     (mt/id)
@@ -328,7 +328,7 @@
                                  :value  "It was created"}]}))))))))
 
 (deftest prepared-statements
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
     (testing "Make sure prepared statements work"
         ;; If impersonation is set, then the Trino user should be the current Metabase user, i.e. metabase_user@user.com
         ;; The role is ignored as Metabase users may not have the role defined in the database connection
@@ -336,7 +336,7 @@
         (prepared-statements-helper false))))
 
 (deftest impersonation-query
-  (mt/test-driver :starburst
+  (mt/test-driver :peaka
     (testing "Make sure the right credentials are used depending on the impersonation checkbox"
       (binding [api/*current-user* (atom {:email "metabase_user@user.com"})]
         ;; By default the Trino user should the user defined in the database connection, i.e. "metabase"
@@ -359,7 +359,7 @@
             :roles                        "sysadmin"
             :ssl                          false
             :impersonation                true}]
-              (t2.with-temp/with-temp [Database db {:engine :starburst, :name "Temp Trino JDBC Schema DB", :details details}]
+              (t2.with-temp/with-temp [Database db {:engine :peaka, :name "Temp Trino JDBC Schema DB", :details details}]
               (mt/with-db db
               (qp/process-query
                 {:database     (mt/id)
@@ -377,7 +377,7 @@
               :roles                        "sysadmin"
               :ssl                          false
               :impersonation                true}]
-                (t2.with-temp/with-temp [Database db {:engine :starburst, :name "Temp Trino JDBC Schema DB", :details details}]
+                (t2.with-temp/with-temp [Database db {:engine :peaka, :name "Temp Trino JDBC Schema DB", :details details}]
                 (mt/with-db db
                 (qp/process-query
                   {:database     (mt/id)
@@ -395,7 +395,7 @@
               :roles                        "sysadmin"
               :ssl                          false
               :impersonation                false}]
-                (t2.with-temp/with-temp [Database db {:engine :starburst, :name "Temp Trino JDBC Schema DB", :details details}]
+                (t2.with-temp/with-temp [Database db {:engine :peaka, :name "Temp Trino JDBC Schema DB", :details details}]
                 (mt/with-db db
                 (qp/process-query
                   {:database     (mt/id)

@@ -12,11 +12,11 @@
 ;; limitations under the License.
 ;;
 (ns metabase.driver.implementation.execute
-  "Execute implementation for Starburst driver."
+  "Execute implementation for Peaka driver."
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [java-time :as t]
-            [metabase.driver.implementation.sync :refer [starburst-type->base-type]]
+            [metabase.driver.implementation.sync :refer [peaka-type->base-type]]
             [metabase.driver.implementation.messages :as msg]
             [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
             [metabase.driver.sql.parameters.substitution :as sql.params.substitution]
@@ -45,7 +45,7 @@
   (-> (.. rs getStatement getConnection)
       pooled-conn->trino-conn))
 
-(defmethod sql-jdbc.execute/do-with-connection-with-options :starburst
+(defmethod sql-jdbc.execute/do-with-connection-with-options :peaka
   [driver db-or-id-or-spec {:keys [session-timezone write?], :as options} f]
   (sql-jdbc.execute/do-with-resolved-connection
     driver
@@ -74,7 +74,7 @@
 ;;; |                                          Reading Columns from Result Set                                       |
 ;;; +----------------------------------------------------------------------------------------------------------------+
 
-(defmethod sql-jdbc.execute/read-column-thunk [:starburst Types/TIMESTAMP]
+(defmethod sql-jdbc.execute/read-column-thunk [:peaka Types/TIMESTAMP]
   [_ ^ResultSet rset _ ^Integer i]
   ;; "Attempts to convert Timestamp to OffsetDateTime with UTC if possible.
   (let [zone     (.getTimeZoneId (rs->trino-conn rset))]
@@ -106,11 +106,11 @@
         ^Long millis  (mod (.getTime sql-time) 1000)]
     (.with lt ChronoField/MILLI_OF_SECOND millis)))
 
-(defmethod sql-jdbc.execute/read-column-thunk [:starburst Types/TIME]
+(defmethod sql-jdbc.execute/read-column-thunk [:peaka Types/TIME]
   [_ ^ResultSet rs ^ResultSetMetaData rs-meta ^Integer i]
   ;; When reading Time column, if base type is 'time with time zone', shift to UTC. Otherwise, just return local time.
   (let [type-name  (.getColumnTypeName rs-meta i)
-        base-type  (starburst-type->base-type type-name)
+        base-type  (peaka-type->base-type type-name)
         with-tz?   (isa? base-type :type/TimeWithTZ)]
     (fn []
       (when-let [sql-time (.getTime rs i)]
@@ -126,7 +126,7 @@
             ;; else the base-type is time without time zone, so just return the local-time value
             local-time))))))
 
-(defmethod sql-jdbc.execute/read-column-thunk [:starburst Types/TIMESTAMP_WITH_TIMEZONE]
+(defmethod sql-jdbc.execute/read-column-thunk [:peaka Types/TIMESTAMP_WITH_TIMEZONE]
   [_ ^ResultSet rset _ ^long i]
   ;; Converts TIMESTAMP_WITH_TIMEZONE to java.time.ZonedDateTime, then to OffsetDateTime with UTC time zone
   (fn []
@@ -137,7 +137,7 @@
         :else (.toOffsetDateTime (.withZoneSameInstant zonedDateTime utcTimeZone)))
     )))
 
-(defmethod sql-jdbc.execute/read-column-thunk [:starburst Types/TIME_WITH_TIMEZONE]
+(defmethod sql-jdbc.execute/read-column-thunk [:peaka Types/TIME_WITH_TIMEZONE]
   [_ rs _ i]
   ;; Converts TIME_WITH_TIMEZONE to local-time, then to OffsetTime with default time zone.
   (fn []
@@ -172,7 +172,7 @@
   (let [message (.getMessage e)]
     (cond
       (clojure.string/includes? message "Expecting: 'USING'")
-      (throw (Exception. (str message msg/STARBURST_MAYBE_INCOMPATIBLE)))
+      (throw (Exception. (str message msg/PEAKA_MAYBE_INCOMPATIBLE)))
       (clojure.string/includes? message "Incorrect number of parameters")
       (throw (Exception. msg/TOO_MANY_PARAMETERS))
       :else (throw e))))
@@ -251,9 +251,9 @@
     (setMaxRows [nb] (.setMaxRows stmt nb))
     (close [] (.close stmt))))
 
-(defmethod sql-jdbc.execute/prepared-statement :starburst
+(defmethod sql-jdbc.execute/prepared-statement :peaka
   [driver ^Connection conn ^String sql params]
-  ;; with Starburst driver, result set holdability must be HOLD_CURSORS_OVER_COMMIT
+  ;; with Peaka driver, result set holdability must be HOLD_CURSORS_OVER_COMMIT
   ;; defining this method simply to omit setting the holdability
   (impersonate-user conn)
   (let [stmt (.prepareStatement conn
@@ -274,7 +274,7 @@
         (.close stmt)
         (throw e)))))
 
-(defmethod sql-jdbc.execute/statement :starburst
+(defmethod sql-jdbc.execute/statement :peaka
   [_ ^Connection conn]
   ;; and similarly for statement (do not set holdability)
   (impersonate-user conn)
@@ -303,24 +303,24 @@
 (defn- date-time->substitution [ts-str]
   (sql.params.substitution/make-stmt-subs "from_iso8601_timestamp(?)" [ts-str]))
 
-(defmethod sql.params.substitution/->prepared-substitution [:starburst ZonedDateTime]
+(defmethod sql.params.substitution/->prepared-substitution [:peaka ZonedDateTime]
   [_ ^ZonedDateTime t]
   ;; for native query parameter substitution, in order to not conflict with the `TrinoConnection` session time zone
   ;; (which was set via report time zone), it is necessary to use the `from_iso8601_timestamp` function on the string
   ;; representation of the `ZonedDateTime` instance, but converted to the report time zone
   ;_(date-time->substitution (.format (t/offset-date-time (t/local-date-time t) (t/zone-offset 0)) DateTimeFormatter/ISO_OFFSET_DATE_TIME))
-  (let [report-zone       (qp.timezone/report-timezone-id-if-supported :starburst (lib.metadata/database (qp.store/metadata-provider)))
+  (let [report-zone       (qp.timezone/report-timezone-id-if-supported :peaka (lib.metadata/database (qp.store/metadata-provider)))
         ^ZonedDateTime ts (if (str/blank? report-zone) t (t/with-zone-same-instant t (t/zone-id report-zone)))]
     ;; the `from_iso8601_timestamp` only accepts timestamps with an offset (not a zone ID), so only format with offset
     (date-time->substitution (.format ts DateTimeFormatter/ISO_OFFSET_DATE_TIME))))
 
-(defmethod sql.params.substitution/->prepared-substitution [:starburst LocalDateTime]
+(defmethod sql.params.substitution/->prepared-substitution [:peaka LocalDateTime]
   [_ ^LocalDateTime t]
   ;; similar to above implementation, but for `LocalDateTime`
   ;; when Trino parses this, it will account for session (report) time zone
   (date-time->substitution (.format t DateTimeFormatter/ISO_LOCAL_DATE_TIME)))
 
-(defmethod sql.params.substitution/->prepared-substitution [:starburst OffsetDateTime]
+(defmethod sql.params.substitution/->prepared-substitution [:peaka OffsetDateTime]
   [_ ^OffsetDateTime t]
   ;; similar to above implementation, but for `ZonedDateTime`
   ;; when Trino parses this, it will account for session (report) time zone
@@ -341,7 +341,7 @@
   (let [millis-of-day (.get t ChronoField/MILLI_OF_DAY)]
     (.setTime ps i (Time. millis-of-day))))
 
-(defmethod sql-jdbc.execute/set-parameter [:starburst OffsetTime]
+(defmethod sql-jdbc.execute/set-parameter [:peaka OffsetTime]
   [_ ^PreparedStatement ps ^Integer i t]
   ;; Convert OffsetTime to UTC, then set time param
   ;; necessary because `TrinoPreparedStatement` does not implement the `setTime` overload having the final `Calendar`
@@ -349,7 +349,7 @@
   (let [adjusted-tz (t/with-offset-same-instant t (t/zone-offset 0))]
     (set-time-param ps i adjusted-tz)))
 
-(defmethod sql-jdbc.execute/set-parameter [:starburst LocalTime]
+(defmethod sql-jdbc.execute/set-parameter [:peaka LocalTime]
   [_ ^PreparedStatement ps ^Integer i t]
   ;; same rationale as above
   (set-time-param ps i t))

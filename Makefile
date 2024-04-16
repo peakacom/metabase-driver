@@ -39,8 +39,8 @@ clean:
 	cd $(makefile_dir)/metabase/modules/drivers && git fetch --all --tags && git checkout $(metabase_version);
 
 link_to_driver:
-ifeq ($(wildcard $(makefile_dir)/metabase/modules/drivers/starburst/src),)
-	@echo "Adding link to driver..."; ln -s ../../../drivers/starburst $(makefile_dir)/metabase/modules/drivers
+ifeq ($(wildcard $(makefile_dir)/metabase/modules/drivers/peaka/src),)
+	@echo "Adding link to driver..."; ln -s ../../../drivers/peaka $(makefile_dir)/metabase/modules/drivers
 else
 	@echo "Driver found, skipping linking."
 endif
@@ -51,39 +51,39 @@ front_end:
 	cd $(makefile_dir)/metabase/; export WEBPACK_BUNDLE=production && yarn build-release && yarn build-static-viz
 
 driver: update_deps_files
-	@echo "Building Starburst driver..."
-	cd $(makefile_dir)/metabase/; ./bin/build-driver.sh starburst
+	@echo "Building Peaka driver..."
+	cd $(makefile_dir)/metabase/; ./bin/build-driver.sh peaka
 
 server: 
 	@echo "Starting metabase..."
 	cd $(makefile_dir)/metabase/; clojure -M:run
 
-# This command adds the require starburst driver dependencies to the metabase repo.
+# This command adds the require Peaka driver dependencies to the metabase repo.
 update_deps_files:
-	@if cd $(makefile_dir)/metabase && grep -q starburst deps.edn; \
+	@if cd $(makefile_dir)/metabase && grep -q peaka deps.edn; \
 		then \
 			echo "Metabase deps file updated, skipping..."; \
 		else \
 			echo "Updating metabase deps file..."; \
-			cd $(makefile_dir)/metabase/; sed -i.bak 's/\/test\"\]\}/\/test\" \"modules\/drivers\/starburst\/test\"\]\}/g' deps.edn; \
+			cd $(makefile_dir)/metabase/; sed -i.bak 's/\/test\"\]\}/\/test\" \"modules\/drivers\/peaka\/test\"\]\}/g' deps.edn; \
 	fi
 
-	@if cd $(makefile_dir)/metabase/modules/drivers && grep -q starburst deps.edn; \
+	@if cd $(makefile_dir)/metabase/modules/drivers && grep -q peaka deps.edn; \
 		then \
 			echo "Metabase driver deps file updated, skipping..."; \
 		else \
 			echo "Updating metabase driver deps file..."; \
-			cd $(makefile_dir)/metabase/modules/drivers/; sed -i.bak "s/\}\}\}/\} \metabase\/starburst \{:local\/root \"starburst\"\}\}\}/g" deps.edn; \
+			cd $(makefile_dir)/metabase/modules/drivers/; sed -i.bak "s/\}\}\}/\} \metabase\/peaka \{:local\/root \"peaka\"\}\}\}/g" deps.edn; \
 	fi
 
 test: start_trino_if_missing link_to_driver update_deps_files
-	@echo "Testing Starburst driver..."
+	@echo "Testing Peaka driver..."
 	cp driver_test.clj metabase/test/metabase/
-	cd $(makefile_dir)/metabase/; DRIVERS=starburst MB_STARBURST_TEST_PORT=$(trino_port) clojure -X:dev:drivers:drivers-dev:test
+	cd $(makefile_dir)/metabase/; DRIVERS=peaka MB_STARBURST_TEST_PORT=$(trino_port) clojure -X:dev:drivers:drivers-dev:test
 
 testOptimized: start_trino_if_missing link_to_driver update_deps_files
-	@echo "Testing Starburst driver (explicitPrepare=true)..."
-	cd $(makefile_dir)/metabase/; DRIVERS=starburst MB_STARBURST_TEST_PORT=$(trino_port) clojure -J-DexplicitPrepare=false -X:dev:drivers:drivers-dev:test
+	@echo "Testing Peaka driver (explicitPrepare=true)..."
+	cd $(makefile_dir)/metabase/; DRIVERS=peaka MB_STARBURST_TEST_PORT=$(trino_port) clojure -J-DexplicitPrepare=false -X:dev:drivers:drivers-dev:test
 
 build: clone_metabase_if_missing update_deps_files link_to_driver front_end driver
 

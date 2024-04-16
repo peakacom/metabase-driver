@@ -11,8 +11,8 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 ;;
-(ns metabase.test.data.starburst
-  "Starburst driver test extensions."
+(ns metabase.test.data.peaka
+  "Peaka driver test extensions."
   (:require [clojure.string :as str]
             [metabase.config :as config]
             [metabase.connection-pool :as connection-pool]
@@ -30,15 +30,15 @@
   (:import [java.sql Connection DriverManager PreparedStatement]))
 
 ;; JDBC SQL
-(sql-jdbc.tx/add-test-extensions! :starburst)
+(sql-jdbc.tx/add-test-extensions! :peaka)
 
 (def ^:private test-catalog-name "test_data")
 
-(defmethod tx/sorts-nil-first? :starburst [_ _] false)
+(defmethod tx/sorts-nil-first? :peaka [_ _] false)
 
 ;; during unit tests don't treat Trino as having FK support
-(defmethod driver/database-supports? [:starburst :foreign-keys] [_ _ _] (not config/is-test?))
-(defmethod driver/database-supports? [:starburst :set-timezone] [_ _ _] true)
+(defmethod driver/database-supports? [:peaka :foreign-keys] [_ _ _] (not config/is-test?))
+(defmethod driver/database-supports? [:peaka :set-timezone] [_ _ _] true)
 
 (doseq [[base-type db-type] {:type/BigInteger             "BIGINT"
                              :type/Boolean                "BOOLEAN"
@@ -53,28 +53,28 @@
                              :type/Text                   "VARCHAR"
                              :type/Time                   "TIME"
                              :type/TimeWithTZ             "TIME WITH TIME ZONE"}]
-  (defmethod sql.tx/field-base-type->sql-type [:starburst base-type] [_ _] db-type))
+  (defmethod sql.tx/field-base-type->sql-type [:peaka base-type] [_ _] db-type))
 
-(defmethod tx/dbdef->connection-details :starburst
+(defmethod tx/dbdef->connection-details :peaka
   [_ _ {:keys [_database-name]}]
-  {:host                               (tx/db-test-env-var-or-throw :starburst :host "localhost")
-   :port                               (tx/db-test-env-var :starburst :port "8082")
+  {:host                               (tx/db-test-env-var-or-throw :peaka :host "localhost")
+   :port                               (tx/db-test-env-var :peaka :port "8082")
    :user                               (tx/db-test-env-var-or-throw :starburst :user "metabase")
-   :additional-options                 (tx/db-test-env-var :starburst :additional-options nil)
-   :prepared-optimized                 (tx/db-test-env-var :starburst :prepared-optimized (not= (System/getProperty "explicitPrepare" "true") "true"))
-   :ssl                                (tx/db-test-env-var :starburst :ssl "false")
-   :kerberos                           (tx/db-test-env-var :starburst :kerberos "false")
-   :kerberos-principal                 (tx/db-test-env-var :starburst :kerberos-principal nil)
-   :kerberos-remote-service-name       (tx/db-test-env-var :starburst :kerberos-remote-service-name nil)
-   :kerberos-use-canonical-hostname    (tx/db-test-env-var :starburst :kerberos-use-canonical-hostname nil)
-   :kerberos-credential-cache-path     (tx/db-test-env-var :starburst :kerberos-credential-cache-path nil)
-   :kerberos-keytab-path               (tx/db-test-env-var :starburst :kerberos-keytab-path nil)
-   :kerberos-config-path               (tx/db-test-env-var :starburst :kerberos-config-path nil)
-   :kerberos-service-principal-pattern (tx/db-test-env-var :starburst :kerberos-service-principal-pattern nil)
+   :additional-options                 (tx/db-test-env-var :peaka :additional-options nil)
+   :prepared-optimized                 (tx/db-test-env-var :peaka :prepared-optimized (not= (System/getProperty "explicitPrepare" "true") "true"))
+   :ssl                                (tx/db-test-env-var :peaka :ssl "false")
+   :kerberos                           (tx/db-test-env-var :peaka :kerberos "false")
+   :kerberos-principal                 (tx/db-test-env-var :peaka :kerberos-principal nil)
+   :kerberos-remote-service-name       (tx/db-test-env-var :peaka :kerberos-remote-service-name nil)
+   :kerberos-use-canonical-hostname    (tx/db-test-env-var :peaka :kerberos-use-canonical-hostname nil)
+   :kerberos-credential-cache-path     (tx/db-test-env-var :peaka :kerberos-credential-cache-path nil)
+   :kerberos-keytab-path               (tx/db-test-env-var :peaka :kerberos-keytab-path nil)
+   :kerberos-config-path               (tx/db-test-env-var :peaka :kerberos-config-path nil)
+   :kerberos-service-principal-pattern (tx/db-test-env-var :peaka :kerberos-service-principal-pattern nil)
    :catalog                            test-catalog-name
-   :schema                             (tx/db-test-env-var :starburst :schema nil)})
+   :schema                             (tx/db-test-env-var :peaka :schema nil)})
 
-(defmethod execute/execute-sql! :starburst
+(defmethod execute/execute-sql! :peaka
   [& args]
   (apply execute/sequentially-execute-sql! args))
 
@@ -95,9 +95,9 @@
                      100)
         load-fn    (load-data/make-load-data-fn load-data/load-data-add-ids
                                                 (partial load-data/load-data-chunked pmap chunk-size))]
-    (load-fn :starburst dbdef tabledef)))
+    (load-fn :peaka dbdef tabledef)))
 
-(defmethod load-data/load-data! :starburst
+(defmethod load-data/load-data! :peaka
   [_ dbdef tabledef]
   (load-data dbdef tabledef))
 
@@ -113,7 +113,7 @@
         true))
     conn))
 
-(defmethod load-data/do-insert! :starburst
+(defmethod load-data/do-insert! :peaka
   [driver spec table-identifier row-or-rows]
   (let [statements (ddl/insert-rows-ddl-statements driver table-identifier row-or-rows)]
     (let [conn (jdbc-spec->connection spec)]
@@ -129,35 +129,33 @@
                               {:driver driver, :sql sql, :params params}
                               e)))))))))
 
-(defmethod sql.tx/drop-db-if-exists-sql :starburst [_ _] nil)
-(defmethod sql.tx/create-db-sql         :starburst [_ _] nil)
+(defmethod sql.tx/drop-db-if-exists-sql :peaka [_ _] nil)
+(defmethod sql.tx/create-db-sql         :peaka [_ _] nil)
 
-(defmethod sql.tx/qualified-name-components :starburst
+(defmethod sql.tx/qualified-name-components :peaka
   ;; use the default schema from the in-memory connector
   ([_ _db-name]                      [test-catalog-name "default"])
   ([_ db-name table-name]            [test-catalog-name "default" (tx/db-qualified-table-name db-name table-name)])
   ([_ db-name table-name field-name] [test-catalog-name "default" (tx/db-qualified-table-name db-name table-name) field-name]))
 
 
-(defmethod sql.tx/pk-sql-type :starburst
+(defmethod sql.tx/pk-sql-type :peaka
   [_]
   "INTEGER")
 
-(defmethod sql.tx/create-table-sql :starburst
+(defmethod sql.tx/create-table-sql :peaka
   [driver dbdef tabledef]
   ;; strip out the PRIMARY KEY stuff from the CREATE TABLE statement
   (let [sql ((get-method sql.tx/create-table-sql :sql/test-extensions) driver dbdef tabledef)]
     (str/replace sql #", PRIMARY KEY \([^)]+\)|NOT NULL" "")))
 
-(defmethod ddl.i/format-name :starburst [_ table-or-field-name]
+(defmethod ddl.i/format-name :peaka [_ table-or-field-name]
   (if config/is-test?
     table-or-field-name
     (u/->snake_case_en table-or-field-name)))
 
 ;; Trino doesn't support FKs, at least not adding them via DDL
-(defmethod sql.tx/add-fk-sql :starburst
+(defmethod sql.tx/add-fk-sql :peaka
   [_ _ _ _]
   nil)
 
-;; TODO: FIXME?
-#_(defmethod tx/has-questionable-timezone-support? :starburst [_] true)

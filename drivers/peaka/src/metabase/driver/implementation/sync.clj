@@ -12,7 +12,7 @@
 ;; limitations under the License.
 ;;
 (ns metabase.driver.implementation.sync
-  "Sync implementation for Starburst driver."
+  "Sync implementation for Peaka driver."
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -28,7 +28,7 @@
             [metabase.util.i18n :refer [trs]])
   (:import (java.sql Connection)))
 
-(def starburst-type->base-type
+(def peaka-type->base-type
   "Function that returns a `base-type` for the given `straburst-type` (can be a keyword or string)."
   (sql-jdbc.sync/pattern-based-database-type->base-type
    [[#"(?i)boolean"                    :type/Boolean]
@@ -42,7 +42,7 @@
     [#"(?i)varchar.*"                  :type/Text]
     [#"(?i)char.*"                     :type/Text]
     [#"(?i)varbinary.*"                :type/*]
-    [#"(?i)json"                       :type/Text]
+    [#"(?i)json"                       :type/JSON]
     [#"(?i)date"                       :type/Date]
     [#"(?i)^timestamp$"                :type/DateTime]
     [#"(?i)^timestamp\(\d+\)$"         :type/DateTime]
@@ -81,13 +81,13 @@
   "The set of schemas that should be excluded when querying all schemas."
   #{"information_schema"})
 
-(defmethod sql-jdbc.sync/database-type->base-type :starburst
+(defmethod sql-jdbc.sync/database-type->base-type :peaka
   [_ field-type]
-  (let [base-type (starburst-type->base-type field-type)]
+  (let [base-type (peaka-type->base-type field-type)]
     (log/debugf "database-type->base-type %s -> %s" field-type base-type)
     base-type))
 
-(defmethod sql-jdbc.sync.interface/have-select-privilege? :starburst
+(defmethod sql-jdbc.sync.interface/have-select-privilege? :peaka
   [driver ^Connection conn table-schema table-name]
   (try
     (let [sql (str "SHOW TABLES FROM \"" table-schema "\" LIKE '" table-name "'")]
@@ -126,7 +126,7 @@
                      (describe-schema driver conn catalog schema))))
             (jdbc/reducible-result-set rs {})))))
   
-(defmethod driver/describe-database :starburst
+(defmethod driver/describe-database :peaka
   [driver {{:keys [catalog schema] :as details} :details :as database}]
   (sql-jdbc.execute/do-with-connection-with-options
     driver
@@ -137,7 +137,7 @@
                       (all-schemas driver conn catalog))]
         {:tables (reduce set/union schemas)}))))
 
-(defmethod driver/describe-table :starburst
+(defmethod driver/describe-table :peaka
   [driver {{:keys [catalog] :as details} :details :as database} {schema :schema, table-name :name}]
   (sql-jdbc.execute/do-with-connection-with-options
     driver
@@ -154,11 +154,11 @@
             (map-indexed (fn [idx {:keys [column type] :as col}]
                             {:name column
                             :database-type type
-                            :base-type         (starburst-type->base-type type)
+                            :base-type         (peaka-type->base-type type)
                             :database-position idx}))
             (jdbc/reducible-result-set rs {}))})))))
 
-(defmethod driver/db-default-timezone :starburst
+(defmethod driver/db-default-timezone :peaka
   [driver {{:keys [catalog] :as details} :details :as database}]
   (sql-jdbc.execute/do-with-connection-with-options
     driver

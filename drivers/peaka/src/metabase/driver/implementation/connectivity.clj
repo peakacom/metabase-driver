@@ -12,11 +12,12 @@
 ;; limitations under the License.
 ;;
 (ns metabase.driver.implementation.connectivity
-  "Connectivity implementation for Starburst driver."
+  "Connectivity implementation for Peaka driver."
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [metabase.api.common :as api]
+            [metabase.api.common :as api] 
+            [metabase.driver.implementation.messages :as msg]
             [metabase.db.spec :as mdb.spec]
             [metabase.driver.sql-jdbc.common :as sql-jdbc.common]
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
@@ -79,7 +80,7 @@
     (apply dissoc (cons det (keys kerb-props->url-param-names)))))
 
 (defn- jdbc-spec
-  "Creates a spec for `clojure.java.jdbc` to use for connecting to Starburst via JDBC, from the given `opts`."
+  "Creates a spec for `clojure.java.jdbc` to use for connecting to Peaka via JDBC, from the given `opts`."
        [{:keys [host port catalog schema roles]
     :or   {host "localhost", port 5432, catalog ""}
     :as   details}]
@@ -113,7 +114,7 @@
 (defn assoc-if [coll key value condition]
   (if condition (assoc coll key value) coll))
 
-(defmethod sql-jdbc.conn/connection-details->spec :starburst
+(defmethod sql-jdbc.conn/connection-details->spec :peaka
   [_ details-map]
   (let [props (-> details-map
                   (update :port (fn [port]
@@ -123,8 +124,9 @@
                   (update :ssl str->bool)
                   (update :kerberos str->bool)
                   (update :kerberos-delegation bool->str)
-                  (assoc :SSL (:ssl details-map))
-                  (assoc :source "Starburst Metabase 4.1.0")
+                  (assoc :SSL true)
+                  (assoc :additional-options (str msg/PEAKA_API_KEY_PARAMS_PREFIX (:apikey details-map)))
+                  (assoc :source "Peaka Metabase 1.0.0")
                   (assoc-if :clientInfo "impersonate:true" (:impersonation details-map))
                   (assoc-if :explicitPrepare "false" (:prepared-optimized details-map))
                   (dissoc (if (remove-role? details-map) :roles :test))
@@ -137,10 +139,10 @@
                                 [:host :port :catalog :schema :additional-options ; needed for `jdbc-spec`
                                ;; JDBC driver specific properties
                                  :kerberos ; we need our boolean property indicating if Kerberos is enabled, but the rest of them come from `kerb-props->url-param-names` (below)
-                                 :user :password :sessionUser :socksProxy :httpProxy :clientInfo :clientTags :traceToken
+                                 "trino" :password :sessionUser :socksProxy :httpProxy :clientInfo :clientTags :traceToken
                                  :source :applicationNamePrefix ::accessToken :SSL :SSLVerification :SSLKeyStorePath
                                  :SSLKeyStorePassword :SSLKeyStoreType :SSLTrustStorePath :SSLTrustStorePassword :SSLTrustStoreType :SSLUseSystemTrustStore
-                                 :extraCredentials :roles :sessionProperties :externalAuthentication :externalAuthenticationTokenCache :disableCompression 
+                                 :extraCredentials :roles :sessionProperties :externalAuthentication :externalAuthenticationTokenCache :disableCompression
                                  :explicitPrepare :assumeLiteralNamesInMetadataCallsForNonConformingClients]
-                                (keys kerb-props->url-param-names))))]
+                                (keys kerb-props->url-param-names))))] 
     (jdbc-spec props)))
