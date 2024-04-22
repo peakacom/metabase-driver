@@ -14,4 +14,4 @@ to be run again unless you manually git pull new changes into your local Metabas
 
 For feature requests and bugs, please create an issue in this repo. For further support, see the following resources:
 
-- [Peaka Communitu Discord](https://discord.com/invite/peaka)
+- [Peaka Community Discord](https://discord.com/invite/peaka)
