@@ -30,7 +30,7 @@ driver:
     - name: schema
       display-name: Schema
       placeholder: payment
-      required: false
+      required: true
       helper-text: Only add tables to Metabase that come from a specific schema.
     - advanced-options-start
     - default-advanced-options
